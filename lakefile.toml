@@ -1,0 +1,15 @@
+name = "MinSurf"
+version = "0.1.0"
+defaultTargets = ["minsurf"]
+
+[[require]]
+name = "mathlib"
+scope = "leanprover-community"
+rev = "v4.29.1"
+
+[[lean_lib]]
+name = "MinSurf"
+
+[[lean_exe]]
+name = "minsurf"
+root = "Main"
