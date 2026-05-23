@@ -6,6 +6,7 @@ import Mathlib.LinearAlgebra.Matrix.NonsingularInverse
 import Mathlib.LinearAlgebra.Basis.Defs
 import Mathlib.Data.Real.Sqrt
 import Mathlib.MeasureTheory.Integral.Bochner.Basic
+import Mathlib.Analysis.Calculus.ParametricIntegral
 
 open Manifold
 
@@ -138,3 +139,37 @@ Since `ν(t) = √(det g_{ij}(t)) · √(det g^{ij}(0))`, the integrand is the t
 noncomputable def Variation.volume
     (F : Variation IS S I M f) (b : Module.Basis ι ℝ ES) (μ : Measure S) (t : ℝ) : ℝ :=
   ∫ p, F.areaDensity b p t * Real.sqrt (F.metricMatrix b p 0).det ∂μ
+
+open Filter
+open scoped Topology
+
+omit [IsManifold I 1 M] in
+/-- **First variation of volume — differentiation under the integral sign.**
+
+Under the standard hypotheses of the Leibniz rule — for a.e. point the area density
+`t ↦ ν(t)(p)` is differentiable throughout a neighbourhood `s` of `0`, with a `μ`-integrable
+dominating bound on its derivative, and the time-`0` integrand and the derivative integrand are
+measurable/integrable — the `t`-derivative of the volume passes inside the integral:
+
+`d/dt|₀ Vol(F(Σ, t)) = ∫_Σ (d/dt|₀ ν(t)) · √(det g_{ij}(0)) dμ`.
+
+The factor `√(det g_{ij}(0))` is constant in `t`, so it survives as the fixed reference area
+element while the derivative falls on `ν(t)`. -/
+theorem Variation.deriv_volume
+    (F : Variation IS S I M f) (b : Module.Basis ι ℝ ES) (μ : Measure S)
+    {bound : S → ℝ} {s : Set ℝ} (hs : s ∈ 𝓝 (0 : ℝ))
+    (hF_meas : ∀ᶠ t in 𝓝 (0 : ℝ), AEStronglyMeasurable
+      (fun p => F.areaDensity b p t * Real.sqrt (F.metricMatrix b p 0).det) μ)
+    (hF_int : Integrable
+      (fun p => F.areaDensity b p 0 * Real.sqrt (F.metricMatrix b p 0).det) μ)
+    (hF'_meas : AEStronglyMeasurable
+      (fun p => deriv (fun t => F.areaDensity b p t) 0 * Real.sqrt (F.metricMatrix b p 0).det) μ)
+    (h_diff : ∀ᵐ p ∂μ, ∀ t ∈ s, DifferentiableAt ℝ (fun t => F.areaDensity b p t) t)
+    (h_bound : ∀ᵐ p ∂μ, ∀ t ∈ s,
+      ‖deriv (fun t => F.areaDensity b p t) t * Real.sqrt (F.metricMatrix b p 0).det‖ ≤ bound p)
+    (bound_integrable : Integrable bound μ) :
+    deriv (fun t => F.volume b μ t) 0
+      = ∫ p, deriv (fun t => F.areaDensity b p t) 0 * Real.sqrt (F.metricMatrix b p 0).det ∂μ :=
+  (hasDerivAt_integral_of_dominated_loc_of_deriv_le hs hF_meas hF_int hF'_meas h_bound
+    bound_integrable
+    (h_diff.mono fun _ hp t ht => ((hp t ht).hasDerivAt).mul_const _)).2.deriv
