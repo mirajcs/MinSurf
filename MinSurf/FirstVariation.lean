@@ -2,6 +2,9 @@ import Mathlib.Geometry.Manifold.ContMDiff.Defs
 import Mathlib.Geometry.Manifold.IsManifold.InteriorBoundary
 import Mathlib.Geometry.Manifold.MFDeriv.Defs
 import Mathlib.Geometry.Manifold.VectorBundle.Riemannian
+import Mathlib.LinearAlgebra.Matrix.NonsingularInverse
+import Mathlib.LinearAlgebra.Basis.Defs
+import Mathlib.Data.Real.Sqrt
 
 open Manifold
 
@@ -15,20 +18,31 @@ We model:
 * the surface being varied as a base map `f : S → M`.
 -/
 
+-- The ambient manifold data. These are *implicit* so the operations below resolve them from
+-- their `Variation` argument (which makes dot notation like `F.inducedMetric` work). The
+-- `Variation` structure itself re-declares `IS S I M f` explicitly so the type can be written
+-- `Variation IS S I M f`.
 variable
+    {ES : Type*} [NormedAddCommGroup ES] [NormedSpace ℝ ES]
+    {HS : Type*} [TopologicalSpace HS] {IS : ModelWithCorners ℝ ES HS}
+    {S : Type*} [TopologicalSpace S] [ChartedSpace HS S]
+    {E : Type*} [NormedAddCommGroup E] [NormedSpace ℝ E]
+    {H : Type*} [TopologicalSpace H] {I : ModelWithCorners ℝ E H}
+    {M : Type*} [TopologicalSpace M] [ChartedSpace H M]
+    {f : S → M}
+
+/-- A smooth variation of the map `f : S → M`, with fixed boundary and compact support.
+
+`toFun p t` is the position of the point `p` of the surface at "time" `t`; at `t = 0` it
+recovers `f`. -/
+structure Variation
     {ES : Type*} [NormedAddCommGroup ES] [NormedSpace ℝ ES]
     {HS : Type*} [TopologicalSpace HS] (IS : ModelWithCorners ℝ ES HS)
     (S : Type*) [TopologicalSpace S] [ChartedSpace HS S]
     {E : Type*} [NormedAddCommGroup E] [NormedSpace ℝ E]
     {H : Type*} [TopologicalSpace H] (I : ModelWithCorners ℝ E H)
     (M : Type*) [TopologicalSpace M] [ChartedSpace H M]
-    (f : S → M)
-
-/-- A smooth variation of the map `f : S → M`, with fixed boundary and compact support.
-
-`toFun p t` is the position of the point `p` of the surface at "time" `t`; at `t = 0` it
-recovers `f`. -/
-structure Variation where
+    (f : S → M) where
   /-- The underlying map of the variation, `(p, t) ↦ F(p, t)`. -/
   toFun : S → ℝ → M
   /-- `F` is smooth as a map on the product `S × ℝ`. -/
@@ -70,3 +84,23 @@ noncomputable def Variation.inducedMetric
   inner ℝ
     (mfderiv IS I (fun q : S => F.toFun q t) p v)
     (mfderiv IS I (fun q : S => F.toFun q t) p w)
+
+-- A coordinate frame on `Σ`: a (finite) basis `b` of the model space `ES ≃ T_p Σ`,
+-- whose vectors `b i` play the role of the coordinate fields `∂_{xⁱ}`.
+variable {ι : Type*} [Fintype ι] [DecidableEq ι]
+
+/-- The matrix `(g_{ij}(t))` of induced-metric coefficients of the variation `F` at time `t`,
+expressed in the coordinate frame `b`: `g_{ij}(t) = ⟪dF_t(b i), dF_t(b j)⟫`. -/
+noncomputable def Variation.metricMatrix
+    (F : Variation IS S I M f) (b : Module.Basis ι ℝ ES) (p : S) (t : ℝ) : Matrix ι ι ℝ :=
+  fun i j => F.inducedMetric p t (b i) (b j)
+
+/-- The relative area density of the variation `F` at `p`, in the coordinate frame `b`:
+
+`ν(t) = √(det g_{ij}(t)) · √(det g^{ij}(0))`,
+
+where `g^{ij}(0)` is the inverse metric `(g_{ij}(0))⁻¹` at time `0`. It is the ratio of the area
+element of the induced metric at time `t` to that at time `0`, so `ν(0) = 1`. -/
+noncomputable def Variation.areaDensity
+    (F : Variation IS S I M f) (b : Module.Basis ι ℝ ES) (p : S) (t : ℝ) : ℝ :=
+  Real.sqrt (F.metricMatrix b p t).det * Real.sqrt ((F.metricMatrix b p 0)⁻¹).det
