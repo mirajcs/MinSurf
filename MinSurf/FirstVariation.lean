@@ -1,4 +1,5 @@
-import Mathlib
+import Mathlib.Geometry.Manifold.ContMDiff.Defs
+import Mathlib.Geometry.Manifold.IsManifold.InteriorBoundary
 
 open Manifold
 
