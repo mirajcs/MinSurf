@@ -107,11 +107,27 @@ def Variation.IsOrthonormalFrame
 omit [IsManifold I 1 M] [Fintype ι] in
 /-- For an orthonormal frame the time-`0` metric coefficients are the Kronecker delta:
 `g_{ij}(0) = δ_{ij}`. -/
-theorem Variation.IsOrthonormalFrame.metricMatrix_apply
+lemma Variation.IsOrthonormalFrame.metricMatrix_apply
     {F : Variation IS S I M f} {b : Module.Basis ι ℝ ES} {p : S}
     (h : F.IsOrthonormalFrame b p) (i j : ι) :
     F.metricMatrix b p 0 i j = if i = j then 1 else 0 := by
   rw [h, Matrix.one_apply]
+
+omit [IsManifold I 1 M] in
+/-- For an orthonormal frame the time-`0` metric has unit determinant: `det g_{ij}(0) = 1`. -/
+lemma Variation.IsOrthonormalFrame.det_metricMatrix_zero
+    {F : Variation IS S I M f} {b : Module.Basis ι ℝ ES} {p : S}
+    (h : F.IsOrthonormalFrame b p) :
+    (F.metricMatrix b p 0).det = 1 := by
+  rw [h, Matrix.det_one]
+
+omit [IsManifold I 1 M] in
+/-- For an orthonormal frame the reference area element is `1`: `√(det g_{ij}(0)) = 1`. -/
+lemma Variation.IsOrthonormalFrame.sqrt_det_metricMatrix_zero
+    {F : Variation IS S I M f} {b : Module.Basis ι ℝ ES} {p : S}
+    (h : F.IsOrthonormalFrame b p) :
+    Real.sqrt (F.metricMatrix b p 0).det = 1 := by
+  rw [h.det_metricMatrix_zero, Real.sqrt_one]
 
 /-- The relative area density of the variation `F` at `p`, in the coordinate frame `b`:
 
