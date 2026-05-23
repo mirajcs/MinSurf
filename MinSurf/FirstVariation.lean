@@ -1,6 +1,7 @@
 import Mathlib.Geometry.Manifold.ContMDiff.Defs
 import Mathlib.Geometry.Manifold.IsManifold.InteriorBoundary
 import Mathlib.Geometry.Manifold.MFDeriv.Defs
+import Mathlib.Geometry.Manifold.VectorBundle.Riemannian
 
 open Manifold
 
@@ -46,3 +47,26 @@ at `t = 0` of the curve `t ↦ F(p, t)`, an element of the tangent space `T_{f p
 noncomputable def Variation.variationField
     (F : Variation IS S I M f) (p : S) : TangentSpace I (f p) :=
   F.init p ▸ mfderiv 𝓘(ℝ, ℝ) I (fun t : ℝ => F.toFun p t) 0 (1 : ℝ)
+
+open Bundle
+
+-- Endow the ambient manifold `M` with a Riemannian metric `g`: an inner product
+-- `⟪·, ·⟫ = inner ℝ · ·` on each tangent space `T_x M`, varying smoothly with `x`.
+-- `[IsManifold I 1 M]` ensures the tangent bundle (hence the fibre inner products) is well behaved.
+variable [IsManifold I 1 M] [RiemannianBundle (fun x : M => TangentSpace I x)]
+
+/-- The components of the (time-dependent) induced metric on `Σ` along the variation `F`.
+
+Fix local coordinates `xⁱ` on `Σ` near `p`; the coordinate vector fields `∂_{xⁱ}` correspond to
+tangent vectors `v, w : T_p Σ`. Pushing them forward by `F(·, t)` gives `F_{xⁱ} = dF_t(∂_{xⁱ})`,
+and the induced metric coefficients are
+
+`g_{ij}(t) = g(F_{xⁱ}, F_{xʲ}) = ⟪dF_t(∂_{xⁱ}), dF_t(∂_{xʲ})⟫`.
+
+This is the coordinate-free pairing `(v, w) ↦ ⟪dF_t v, dF_t w⟫`; the `g_{ij}(t)` are its values
+on the coordinate basis. -/
+noncomputable def Variation.inducedMetric
+    (F : Variation IS S I M f) (p : S) (t : ℝ) (v w : TangentSpace IS p) : ℝ :=
+  inner ℝ
+    (mfderiv IS I (fun q : S => F.toFun q t) p v)
+    (mfderiv IS I (fun q : S => F.toFun q t) p w)
