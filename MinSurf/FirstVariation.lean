@@ -5,6 +5,7 @@ import Mathlib.Geometry.Manifold.VectorBundle.Riemannian
 import Mathlib.LinearAlgebra.Matrix.NonsingularInverse
 import Mathlib.LinearAlgebra.Basis.Defs
 import Mathlib.Data.Real.Sqrt
+import Mathlib.MeasureTheory.Integral.Bochner.Basic
 
 open Manifold
 
@@ -104,3 +105,20 @@ element of the induced metric at time `t` to that at time `0`, so `ν(0) = 1`. -
 noncomputable def Variation.areaDensity
     (F : Variation IS S I M f) (b : Module.Basis ι ℝ ES) (p : S) (t : ℝ) : ℝ :=
   Real.sqrt (F.metricMatrix b p t).det * Real.sqrt ((F.metricMatrix b p 0)⁻¹).det
+
+open MeasureTheory
+
+-- To integrate over `Σ` we need a measure; `μ` plays the role of the coordinate Lebesgue
+-- measure `dx`, against which `√(det g_{ij}(0))` is the reference area element.
+variable [MeasurableSpace S]
+
+/-- The volume (area) of the time-`t` surface `F(Σ, t)`, in the coordinate frame `b` and with
+respect to the background measure `μ` on `Σ`:
+
+`Vol(F(Σ, t)) = ∫_Σ ν(t) · √(det g_{ij}(0)) dμ`.
+
+Since `ν(t) = √(det g_{ij}(t)) · √(det g^{ij}(0))`, the integrand is the time-`t` area element
+`√(det g_{ij}(t))`; at `t = 0` it reduces to `Vol(F(Σ, 0)) = ∫_Σ √(det g_{ij}(0)) dμ`. -/
+noncomputable def Variation.volume
+    (F : Variation IS S I M f) (b : Module.Basis ι ℝ ES) (μ : Measure S) (t : ℝ) : ℝ :=
+  ∫ p, F.areaDensity b p t * Real.sqrt (F.metricMatrix b p 0).det ∂μ
