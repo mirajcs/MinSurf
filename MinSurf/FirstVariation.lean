@@ -96,6 +96,22 @@ noncomputable def Variation.metricMatrix
     (F : Variation IS S I M f) (b : Module.Basis ι ℝ ES) (p : S) (t : ℝ) : Matrix ι ι ℝ :=
   fun i j => F.inducedMetric p t (b i) (b j)
 
+/-- The coordinate frame `b` is *orthonormal* for `F` at `p` if the induced metric at time `0` is
+the identity matrix, i.e. `g_{ij}(0) = δ_{ij}`. Equivalently, the pushforwards `df(b i) = dF₀(b i)`
+form an orthonormal frame of the tangent space `T_{f p} M`. -/
+def Variation.IsOrthonormalFrame
+    (F : Variation IS S I M f) (b : Module.Basis ι ℝ ES) (p : S) : Prop :=
+  F.metricMatrix b p 0 = 1
+
+omit [IsManifold I 1 M] [Fintype ι] in
+/-- For an orthonormal frame the time-`0` metric coefficients are the Kronecker delta:
+`g_{ij}(0) = δ_{ij}`. -/
+theorem Variation.IsOrthonormalFrame.metricMatrix_apply
+    {F : Variation IS S I M f} {b : Module.Basis ι ℝ ES} {p : S}
+    (h : F.IsOrthonormalFrame b p) (i j : ι) :
+    F.metricMatrix b p 0 i j = if i = j then 1 else 0 := by
+  rw [h, Matrix.one_apply]
+
 /-- The relative area density of the variation `F` at `p`, in the coordinate frame `b`:
 
 `ν(t) = √(det g_{ij}(t)) · √(det g^{ij}(0))`,
