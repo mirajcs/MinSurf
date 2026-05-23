@@ -21,6 +21,21 @@ manifold setting. So far it contains:
 lake build
 ```
 
+## Documentation
+
+API documentation is generated with
+[doc-gen4](https://github.com/leanprover/doc-gen4) and published to GitHub Pages:
+<https://mirajcs.github.io/MinSurf/>.
+
+To build the docs locally:
+
+```bash
+lake build MinSurf:docs
+```
+
+The generated site is written to `.lake/build/doc`; open
+`.lake/build/doc/MinSurf/FirstVariation.html` to browse it.
+
 ## References
 
 - Manfredo P. do Carmo, *Riemannian Geometry*.

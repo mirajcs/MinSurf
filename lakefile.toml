@@ -3,6 +3,12 @@ version = "0.1.0"
 defaultTargets = ["minsurf"]
 
 [[require]]
+name = "doc-gen4"
+scope = "leanprover"
+rev = "v4.29.1"
+
+# Keep Mathlib last so its pinned dependency versions take precedence.
+[[require]]
 name = "mathlib"
 scope = "leanprover-community"
 rev = "v4.29.1"
