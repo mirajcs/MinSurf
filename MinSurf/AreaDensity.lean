@@ -1,4 +1,9 @@
 import MinSurf.FirstVariation
+import Mathlib.LinearAlgebra.Matrix.Determinant.Basic
+import Mathlib.LinearAlgebra.Matrix.Trace
+import Mathlib.Analysis.Calculus.Deriv.Mul
+import Mathlib.Analysis.Calculus.Deriv.Add
+import Mathlib.Analysis.SpecialFunctions.Sqrt
 
 /-!
 # First variation of the area density
@@ -111,19 +116,129 @@ $$\frac{d}{dt}\Big|_{0}\nu(t) = \operatorname{div}_\Sigma F_t. \qquad \blacksqua
    (`IsOrthonormalFrame`).
 3. **Step G** — makes `{eᵢ}` orthonormal so the sum *is* `div_Σ F_t`. Needs full `g(0) = I`.
 
-## Sketch of the eventual Lean statement
+## What is formalized below
 
-With a pullback connection `∇` along `F` and a `Variation.surfaceDivergence` in hand, the lemma
-would read roughly:
+Steps A–D — the analytic core — are formalized in this file, sorry-free:
 
-```
+* `hasDerivAt_det_of_entries` — **Jacobi's formula at the identity** (Steps B–C): for a matrix path
+  whose entries are differentiable at `t₀` with `g t₀ = 1`, the determinant is differentiable with
+  derivative `tr g'`. Proved directly from the Leibniz expansion `Matrix.det_apply'` and the finite
+  product rule, the key combinatorial fact being that every non-identity permutation contributes a
+  zero factor (`perm_eq_one_of_forall_ne`).
+* `hasDerivAt_sqrt_det_of_entries` — Steps A + B–C–D combined: under the same hypotheses,
+  `d/dt|₀ √(det g) = (tr g') / 2`.
+* `Variation.deriv_areaDensity` — the geometric payoff, for an orthonormal frame: given that each
+  metric entry `t ↦ g_{ij}(t)` is differentiable at `0`,
+  `deriv (fun t => F.areaDensity b p t) 0 = (g') .trace / 2`, where `g'_{ij} = d/dt|₀ g_{ij}(t)`.
+  Since `g'_{ii} = d/dt|₀ ⟪F_{xⁱ}, F_{xⁱ}⟫`, this is exactly the right-hand side of Step D.
+
+The differentiability of the metric entries is taken as a hypothesis: establishing it from
+smoothness of `F` and of the metric is a separate task. Steps E–G (metric compatibility, commuting
+derivatives, and the identification with `div_Σ F_t`) require a pullback connection along `F` and a
+`div_Σ` definition that neither this repository nor Mathlib currently provides.
+-/
+
+open Matrix Finset in
+/-- A permutation fixing every point other than a single `i` is the identity: if `σ k = k` for all
+`k ≠ i`, then `σ = 1`. (A permutation cannot move exactly one point.) -/
+theorem perm_eq_one_of_forall_ne {ι : Type*} [DecidableEq ι] {σ : Equiv.Perm ι} {i : ι}
+    (h : ∀ k, k ≠ i → σ k = k) : σ = 1 := by
+  ext x
+  by_cases hx : σ x = x
+  · simp [hx]
+  · have hxi : x = i := by by_contra hc; exact hx (h x hc)
+    exfalso
+    by_cases hsi : σ x = i
+    · exact hx (hxi ▸ hsi)
+    · exact hx (σ.injective (h (σ x) hsi))
+
+/-- **Jacobi's formula at the identity** (Steps B–C of the area-density computation).
+
+If each entry path `t ↦ (g t) i j` is differentiable at `t₀` with derivative `g' i j`, and
+`g t₀ = 1`, then `t ↦ det (g t)` is differentiable at `t₀` with derivative `tr g'`.
+
+The proof expands `det` by the Leibniz formula `Matrix.det_apply'`, differentiates each
+permutation's monomial with the finite product rule, and then uses `g t₀ = 1` to kill every
+permutation except the identity: a non-identity permutation moves at least two points, so any
+product over all-but-one index still contains an off-diagonal — hence zero — factor of `g t₀ = 1`.
+-/
+theorem hasDerivAt_det_of_entries {ι : Type*} [Fintype ι] [DecidableEq ι]
+    {g : ℝ → Matrix ι ι ℝ} {g' : Matrix ι ι ℝ} {t₀ : ℝ}
+    (hg : ∀ i j, HasDerivAt (fun t => g t i j) (g' i j) t₀)
+    (h1 : g t₀ = 1) :
+    HasDerivAt (fun t => (g t).det) g'.trace t₀ := by
+  have hsum : HasDerivAt (fun t => (g t).det)
+      (∑ σ : Equiv.Perm ι, ((Equiv.Perm.sign σ : ℤ) : ℝ) *
+        ∑ i, (∏ j ∈ Finset.univ.erase i, g t₀ (σ j) j) • g' (σ i) i) t₀ := by
+    simp only [Matrix.det_apply']
+    exact HasDerivAt.fun_sum fun σ _ =>
+      (HasDerivAt.fun_finset_prod fun i _ => hg (σ i) i).const_mul _
+  have hval : (∑ σ : Equiv.Perm ι, ((Equiv.Perm.sign σ : ℤ) : ℝ) *
+        ∑ i, (∏ j ∈ Finset.univ.erase i, g t₀ (σ j) j) • g' (σ i) i) = g'.trace := by
+    rw [Finset.sum_eq_single (1 : Equiv.Perm ι)]
+    · simp only [Equiv.Perm.sign_one, Units.val_one, Int.cast_one, one_mul, Equiv.Perm.coe_one,
+        id_eq]
+      have htr : g'.trace = ∑ i, g' i i := by simp [Matrix.trace, Matrix.diag_apply]
+      rw [htr]
+      refine Finset.sum_congr rfl fun i _ => ?_
+      rw [Finset.prod_eq_one fun j _ => by rw [h1, Matrix.one_apply_eq], one_smul]
+    · intro σ _ hσ
+      have hz : (∑ i, (∏ j ∈ Finset.univ.erase i, g t₀ (σ j) j) • g' (σ i) i) = 0 := by
+        refine Finset.sum_eq_zero fun i _ => ?_
+        obtain ⟨k, hki, hk⟩ : ∃ k, k ≠ i ∧ σ k ≠ k := by
+          by_contra hc; push Not at hc; exact hσ (perm_eq_one_of_forall_ne hc)
+        rw [Finset.prod_eq_zero (Finset.mem_erase.mpr ⟨hki, Finset.mem_univ k⟩)
+          (by rw [h1]; exact Matrix.one_apply_ne hk), zero_smul]
+      rw [hz, mul_zero]
+    · intro hc; exact absurd (Finset.mem_univ _) hc
+  rwa [hval] at hsum
+
+/-- Steps A + B–C–D combined: for a matrix path with `g 0 = 1` and differentiable entries,
+`d/dt|₀ √(det (g t)) = (tr g') / 2`. -/
+theorem hasDerivAt_sqrt_det_of_entries {ι : Type*} [Fintype ι] [DecidableEq ι]
+    {g : ℝ → Matrix ι ι ℝ} {g' : Matrix ι ι ℝ}
+    (hg : ∀ i j, HasDerivAt (fun t => g t i j) (g' i j) 0)
+    (h1 : g 0 = 1) :
+    HasDerivAt (fun t => Real.sqrt (g t).det) (g'.trace / 2) 0 := by
+  have hdet : HasDerivAt (fun t => (g t).det) g'.trace 0 := hasDerivAt_det_of_entries hg h1
+  have hne : (g 0).det ≠ 0 := by rw [h1, Matrix.det_one]; exact one_ne_zero
+  have hsqrt := hdet.sqrt hne
+  simpa only [h1, Matrix.det_one, Real.sqrt_one, mul_one] using hsqrt
+
+open Manifold Bundle
+
+variable
+    {ES : Type*} [NormedAddCommGroup ES] [NormedSpace ℝ ES]
+    {HS : Type*} [TopologicalSpace HS] {IS : ModelWithCorners ℝ ES HS}
+    {S : Type*} [TopologicalSpace S] [ChartedSpace HS S]
+    {E : Type*} [NormedAddCommGroup E] [NormedSpace ℝ E]
+    {H : Type*} [TopologicalSpace H] {I : ModelWithCorners ℝ E H}
+    {M : Type*} [TopologicalSpace M] [ChartedSpace H M]
+    {f : S → M}
+    [IsManifold I 1 M] [RiemannianBundle (fun x : M => TangentSpace I x)]
+    {ι : Type*} [Fintype ι] [DecidableEq ι]
+
+omit [IsManifold I 1 M] in
+/-- **First variation of the area density, Steps A–D** (orthonormal frame).
+
+If the metric entries `t ↦ g_{ij}(t)` are differentiable at `0` with derivatives `g'_{ij}`, and the
+frame `b` is orthonormal at `p` (so `g_{ij}(0) = δ_{ij}`), then
+
+`d/dt|₀ ν(t) = (tr g') / 2`.
+
+Since `g'_{ii} = d/dt|₀ ⟪F_{xⁱ}, F_{xⁱ}⟫`, the right-hand side is `½ ∑ᵢ d/dt|₀ ⟪F_{xⁱ}, F_{xⁱ}⟫`,
+exactly the end of Step D in the module docstring. The remaining identification with `div_Σ F_t`
+(Steps E–G) needs connection/divergence machinery not yet in the repository. -/
 theorem Variation.deriv_areaDensity
     (F : Variation IS S I M f) (b : Module.Basis ι ℝ ES) (p : S)
-    (h : F.IsOrthonormalFrame b p) :
-    deriv (fun t => F.areaDensity b p t) 0 = F.surfaceDivergence b p (F.variationField p)
-```
-
-Steps A–D are accessible from current Mathlib (derivative of `Real.sqrt`, `Matrix.det` via
-`Matrix.deriv_det`/Jacobi, `Matrix.adjugate_eq` and orthonormality). Steps E–G need the connection
-and divergence machinery that the repository does not yet provide.
--/
+    (h : F.IsOrthonormalFrame b p) {g' : Matrix ι ι ℝ}
+    (hg : ∀ i j, HasDerivAt (fun t => F.metricMatrix b p t i j) (g' i j) 0) :
+    deriv (fun t => F.areaDensity b p t) 0 = g'.trace / 2 := by
+  have h' : F.metricMatrix b p 0 = 1 := h
+  have hconst : Real.sqrt ((F.metricMatrix b p 0)⁻¹).det = 1 := by
+    rw [h', inv_one, Matrix.det_one, Real.sqrt_one]
+  have hfun : (fun t => F.areaDensity b p t)
+      = fun t => Real.sqrt (F.metricMatrix b p t).det := by
+    funext t; simp only [Variation.areaDensity, hconst, mul_one]
+  rw [hfun]
+  exact (hasDerivAt_sqrt_det_of_entries hg h').deriv
