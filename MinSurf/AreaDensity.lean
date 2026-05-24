@@ -17,10 +17,11 @@ moved inside the integral onto `ν(t)`; here we evaluate `d/dt|₀ ν(t)` itself
 The statement is, at a point `x ∈ Σ`,
 $$\frac{d}{dt}\Big|_{0}\nu(t) = \operatorname{div}_\Sigma F_t.$$
 
-This is currently a **paper proof only**: the repository does not yet have a pullback connection
-along `F` or a definition of `div_Σ`, both of which the formal statement (Steps E–G below) would
-require. The writeup is kept here as documentation; see the sketch of the eventual Lean statement
-at the end.
+Steps A–D (the analytic core) are formalized sorry-free below; Steps E–G are assembled into the
+final identity, with the two genuinely geometric inputs (metric compatibility and connection
+symmetry) supplied as explicit hypotheses, since the Levi-Civita and pullback-connection
+infrastructure they need is not yet available in Mathlib. The paper proof is kept here in full as
+documentation; see "What is formalized below" for the precise correspondence to the lemmas.
 
 ## Setup and notation
 
@@ -131,11 +132,21 @@ Steps A–D — the analytic core — are formalized in this file, sorry-free:
   metric entry `t ↦ g_{ij}(t)` is differentiable at `0`,
   `deriv (fun t => F.areaDensity b p t) 0 = (g') .trace / 2`, where `g'_{ij} = d/dt|₀ g_{ij}(t)`.
   Since `g'_{ii} = d/dt|₀ ⟪F_{xⁱ}, F_{xⁱ}⟫`, this is exactly the right-hand side of Step D.
+* `Variation.deriv_areaDensity_eq_div` — assembles Steps D–G into
+  `d/dt|₀ ν(t) = ∑ᵢ ⟪∇_{F_{xⁱ}} F_t, F_{xⁱ}⟫ = div_Σ F_t`, taking Step E (metric compatibility)
+  and Step F (connection symmetry) as explicit hypotheses `hE`, `hF`.
 
-The differentiability of the metric entries is taken as a hypothesis: establishing it from
-smoothness of `F` and of the metric is a separate task. Steps E–G (metric compatibility, commuting
-derivatives, and the identification with `div_Σ F_t`) require a pullback connection along `F` and a
-`div_Σ` definition that neither this repository nor Mathlib currently provides.
+Two kinds of input remain as hypotheses rather than being derived:
+
+* **Differentiability of the metric entries** (`hg`): establishing it from smoothness of `F` and of
+  the metric is a separate analytic task.
+* **Steps E and F** (`hE`, `hF`): metric compatibility `d/dt ⟪V,V⟫ = 2⟪∇_{F_t} V, V⟫` and the
+  symmetry `∇_{F_t} F_{xⁱ} = ∇_{F_{xⁱ}} F_t`. Proving these requires the Levi-Civita connection of
+  the ambient metric and a pullback connection along the map `F` — neither of which Mathlib
+  currently provides (it has a general covariant-derivative framework, but no Levi-Civita
+  connection, no metric compatibility, and no along-a-map/pullback connection). Once that theory
+  exists, `hE` and `hF` become provable and `deriv_areaDensity_eq_div` upgrades to an unconditional
+  statement.
 -/
 
 open Matrix Finset in
@@ -242,3 +253,41 @@ theorem Variation.deriv_areaDensity
     funext t; simp only [Variation.areaDensity, hconst, mul_one]
   rw [hfun]
   exact (hasDerivAt_sqrt_det_of_entries hg h').deriv
+
+omit [IsManifold I 1 M] in
+/-- **First variation of area: assembling Steps D–G** (orthonormal frame).
+
+Building on `Variation.deriv_areaDensity` (Steps A–D), this carries the computation through to the
+surface divergence:
+
+`d/dt|₀ ν(t) = div_Σ F_t = ∑ᵢ ⟪∇_{F_{xⁱ}} F_t, F_{xⁱ}⟫`.
+
+The two genuinely geometric steps are supplied as hypotheses, because the infrastructure to prove
+them (the Levi-Civita connection and a pullback connection along `F`) is not yet available in
+Mathlib:
+
+* `hE` is **Step E (metric compatibility)**: writing `eᵢ = F_{xⁱ}|₀` and `covt i = ∇_{F_t} F_{xⁱ}`,
+  it states `d/dt|₀ ⟪F_{xⁱ}, F_{xⁱ}⟫ = 2 ⟪∇_{F_t} F_{xⁱ}, eᵢ⟫`, i.e. `g'_{ii} = 2 ⟪covt i, eᵢ⟫`.
+* `hF` is **Step F (symmetry of the connection)**: `∇_{F_t} F_{xⁱ} = ∇_{F_{xⁱ}} F_t`, i.e.
+  `covt i = covx i`.
+
+Given these, the proof is the pure bookkeeping of Steps D and G: `tr g' = ∑ᵢ g'_{ii}`, the `½`
+cancels the `2`, and the result is the orthonormal-frame formula for `div_Σ F_t` (right-hand side).
+This theorem does **not** discharge `hE`/`hF` themselves. -/
+theorem Variation.deriv_areaDensity_eq_div
+    (F : Variation IS S I M f) (b : Module.Basis ι ℝ ES) (p : S)
+    (h : F.IsOrthonormalFrame b p) {g' : Matrix ι ι ℝ}
+    (hg : ∀ i j, HasDerivAt (fun t => F.metricMatrix b p t i j) (g' i j) 0)
+    {covt covx : ι → TangentSpace I (F.toFun p 0)}
+    (hE : ∀ i, g' i i
+      = 2 * inner ℝ (covt i) (mfderiv IS I (fun q => F.toFun q 0) p (b i)))
+    (hF : ∀ i, covt i = covx i) :
+    deriv (fun t => F.areaDensity b p t) 0
+      = ∑ i, inner ℝ (covx i) (mfderiv IS I (fun q => F.toFun q 0) p (b i)) := by
+  have htr : g'.trace = ∑ i, g' i i := by simp [Matrix.trace, Matrix.diag_apply]
+  have hsum2 : (∑ i, g' i i)
+      = 2 * ∑ i, inner ℝ (covx i) (mfderiv IS I (fun q => F.toFun q 0) p (b i)) := by
+    rw [Finset.mul_sum]
+    exact Finset.sum_congr rfl fun i _ => by rw [hE i, hF i]
+  rw [F.deriv_areaDensity b p h hg, htr, hsum2]
+  ring
