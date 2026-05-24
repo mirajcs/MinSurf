@@ -3,7 +3,7 @@
 A Lean 4 formalization of the theory of minimal surfaces, built on
 [Mathlib](https://github.com/leanprover-community/mathlib4).
 
-> ⚠️ **Status: under active development.** The library is incomplete and its
+>  **Status: under active development.** The library is incomplete and its
 > definitions and APIs are still changing. Expect breaking changes.
 
 ## Overview
@@ -20,21 +20,6 @@ manifold setting. So far it contains:
 ```bash
 lake build
 ```
-
-## Documentation
-
-API documentation is generated with
-[doc-gen4](https://github.com/leanprover/doc-gen4) and published to GitHub Pages:
-<https://mirajcs.github.io/MinSurf/>.
-
-To build the docs locally:
-
-```bash
-lake build MinSurf:docs
-```
-
-The generated site is written to `.lake/build/doc`; open
-`.lake/build/doc/MinSurf/FirstVariation.html` to browse it.
 
 ## References
 
